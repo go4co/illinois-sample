@@ -1,0 +1,1 @@
+This coding sample is an R markdown file with the code used to create the presentation for my research project completed in the Fall 2024 course 'Data Analysis Using R". It was worked on over the course of two months using census data.
