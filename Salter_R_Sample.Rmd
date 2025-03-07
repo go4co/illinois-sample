@@ -1,0 +1,288 @@
+---
+title: "The Impact of Immigration on Native Wages"
+author: "Corinne Salter"
+output: 
+    beamer_presentation:
+        slide_level: 2  # use double '##' to mark the start of a new slide
+header-includes:
+    - \usepackage{tabu}
+    - \usepackage{booktabs}
+    - \usepackage{longtable}
+---
+
+
+```{r echo = FALSE, message = FALSE}
+install.packages('tidyverse')
+library(tidyverse)
+library(knitr)
+install.packages('kableExtra')
+library(kableExtra)
+library(broom)
+library(dplyr)
+install.packages('vtable')
+library(vtable)
+install.packages('Hmisc')
+library(Hmisc)
+library(ggplot2)
+install.packages("tinytex")
+library(tinytex)
+install.packages('weights')
+library(weights)
+```
+
+```{r echo = FALSE, eval = TRUE}
+# Simulating sample data
+projectdata = read.csv("updatedproject.csv")
+```
+
+## Research Question
+
+How does immigration affect the wages of working invididuals native to the United States?
+
+## Background Information 
+
+Immigrants bring skills and fill labor gaps, increase aggregate demand for goods and services and introduce new products, services, and cultural preferences.They pay taxes and attract foreign investments, drive economic growth in many unique ways (NPR, 2024).
+
+"...[S]ome estimates suggest that immigration has reduced the wages of low-skilled workers and college graduates (Brookings, 2012)." Immigration can shock the labor supply, displace employed native individuals by taking lower wages, and create downward pressure on wages with competition.
+
+While some policymakers have blamed immigration for slowing U.S. wage growth since the 1970s, most academic research finds little long run effect on Americans’ wages (Congress.gov, 2016).
+
+## Data
+
+* For this presentation I'll be using US Census data from the years 1990 and 2000.
+
+* 100 most populous metropolitan areas and includes the frequency—how many individuals are present in a city, their wages, and how many of them are employed/unemployed.
+
+* All citizens of working age in the given locations, grouped by immigration status and education level (high school degree or less, some post-secondary education). 
+
+## Key Variables 
+
+* year: year in which outcomes are measured (1990, 2000).
+
+* group: group for which outcomes are measured.
+  * "all" = all individuals
+  * "nat" = all native individuals
+  * "imm" = all immigrants
+    
+* pop: population count in year-MSA-group combination.
+
+* wage: mean hourly wage in year-MSA-group combination (in constant 1990 dollars).
+
+## Key Relationship
+
+To understand how native wages are impacted by immigration, I will take these steps.
+
+* Measure the change in population share of immigrants between 1990 and 2000 across U.S. metropolitan areas.
+
+* Compare it to the change in the wages of native workers in the same areas during the same period. 
+
+## Hypothesis
+
+* I hypothesize that there is no significant difference between the wage of native workers before and after an increase in the amount of immigrant citizens in a metropolitan area. 
+
+* I believe that different theories are at play, and will have effects that cancel each other out. Native workers will be on average, unaffected.
+
+## Data Transformations
+
+pop_share_diff_imm 
+
+* This variable comes from dividing the total population of the immigrant group in each city by the total population of each city, then subtracting this population share in 1990 from the population share in 2000. 
+
+wage_diff_nat 
+
+* This variable comes from subtracting the hourly wage (in real 1990 US dollars) of the native group in each city in the year 1990 from that of the year 2000.
+
+## Data Exploration
+
+```{r echo = FALSE, eval = TRUE}
+#Weighted Summary Stats of Immigrant Population Share Difference (Independent)
+wtd_mean2 = wtd.mean(projectdata$pop_share_diff_imm, weights = projectdata$pop_2000)
+wtd_var2 = wtd.var(projectdata$pop_share_diff_imm, weights = projectdata$pop_2000)
+wtd_sd2 = sqrt(wtd_var2)
+wtd_quantiles2 = wtd.quantile(projectdata$pop_share_diff_imm, weights = projectdata$pop_2000, probs = c(0.25, 0.5, 0.75))
+
+#Weighted Summary Stats of Wage of Native Workers Difference (Dependent)
+wtd_mean = wtd.mean(projectdata$wage_diff_nat, weights = projectdata$pop_2000)
+wtd_var = wtd.var(projectdata$wage_diff_nat, weights = projectdata$pop_2000)
+wtd_sd = sqrt(wtd_var)
+wtd_quantiles = wtd.quantile(projectdata$wage_diff_nat, weights = projectdata$pop_2000, probs = c(0.25, 0.5, 0.75))
+
+# Create transposed table with rounded values
+wtdsum_tab_transposed <- data.frame(
+  Variable = c("Change in Imm Pop Share", "Change in Native Wage (USD)"),
+  `Weighted Mean` = round(c(wtd_mean2, wtd_mean), 2),
+  `Weighted Standard Deviation` = round(c(wtd_sd2, wtd_sd), 2),
+  `Weighted 25th Percentile` = round(c(wtd_quantiles2[1], wtd_quantiles[1]), 2),
+  `Weighted Median` = round(c(wtd_quantiles2[2], wtd_quantiles[2]), 2),
+  `Weighted 75th Percentile` = round(c(wtd_quantiles2[3], wtd_quantiles[3]), 2)
+)
+
+names(wtdsum_tab_transposed) <- c("Variable", "Mean", "Standard Deviation", 
+                                 "25th Percentile", "Median", 
+                                  "75th Percentile")
+
+wtdsum_tab_transposed %>% 
+  kable(digits = 2, caption = "Weighted Summary Statistics (1990-2000)", format = "latex") %>%
+  kableExtra::kable_styling(latex_options = "scale_down")
+```
+
+## Data Exploration
+
+```{r echo = FALSE, eval = TRUE}
+hist1 = ggplot(projectdata, aes(x = pop_share_diff_imm, weight = pop_2000)) +
+  geom_histogram(binwidth = 0.01, fill = "darkgreen")+
+  theme_bw()+
+    theme(plot.title=element_text(size=23, face='bold'),
+          axis.title.x = element_text(size = 17),
+          axis.title.y = element_text(size = 17),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10),
+          plot.caption = element_text(size = 15, face='bold'),
+        panel.grid=element_blank())+
+  labs(
+     title = "Distribution of Change in Immigrant Population Share",
+    x = "Immigrant Population Share Difference (%)",
+    y = "Frequency",
+    caption = "Weighted by 2000 Population")
+
+hist1
+```
+
+## Conditional Summary Statistics
+
+New categorical variable that splits the metropolitan areas into two groups, "Below Median" and "Above Median" change in immigrant population share. 
+
+```{r echo = FALSE, eval = TRUE, warning = FALSE}
+# generate conditional summary statistics incorporating weights and using kable
+
+projectdata=projectdata %>% 
+  mutate(imm_share_diff_level=factor(case_when(
+    pop_share_diff_imm<0.024345~'Below Median',
+    pop_share_diff_imm>=0.024345~'Above Median'
+    )))
+
+projectdata$imm_share_diff_level <- factor(projectdata$imm_share_diff_level, 
+                                            levels = c("Below Median", "Above Median"))
+
+wtdcon_tab <- projectdata %>%
+  group_by(imm_share_diff_level) %>%
+  summarise(
+    "Mean" = wtd.mean(wage_diff_nat, weights = pop_2000),
+    "Standard Deviation" = sqrt(wtd.var(wage_diff_nat, weights = pop_2000)),
+    "25th Percentile" = wtd.quantile(wage_diff_nat, weights = pop_2000, probs = 0.25),
+    "Median" = wtd.quantile(wage_diff_nat, weights = pop_2000, probs = 0.5),
+    "75th Percentile" = wtd.quantile(wage_diff_nat, weights = pop_2000, probs = 0.75)
+  )
+
+wtdcon_tab <- wtdcon_tab %>%
+  mutate(across(where(is.numeric), round, 2))
+
+colnames(wtdcon_tab)[colnames(wtdcon_tab) == "imm_share_diff_level"] <- ""
+
+wtdcon_tab %>% 
+  kable(digits = 2, caption = "Weighted Change in Wage of Native Workers by Level of Change in Immigrant Population Share")
+```
+
+## Conditional Summary Statistics
+
+```{r echo = FALSE, eval = TRUE}
+hist2 <- ggplot(projectdata, aes(x = wage_diff_nat, fill = imm_share_diff_level, weight = pop_2000)) +
+  geom_histogram(binwidth = 1, alpha = 0.5, position = "identity") + 
+  scale_fill_manual(values = c("Below Median" = "maroon", "Above Median" = "navy")) +
+    theme_bw()+
+    theme(
+       legend.position = "bottom",
+       plot.title=element_text(size=15, face='bold'),
+          axis.title.x = element_text(size = 14),
+          axis.title.y = element_text(size = 14),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 12),
+          plot.caption = element_text(size = 15, face='bold'),
+        panel.grid=element_blank())+
+  labs(
+    title = "Distribution of Native Worker Wage Differences by Immigrant Population Share Level",
+    x = "Change in Native Wages (In Real 1990 USD)",
+    y = "Frequency",
+    fill = "Change in Immigrant Population Share",
+    caption = "Weighted by 2000 Population"
+  ) +
+  scale_x_continuous(breaks = seq(-3, 7, by = 2))  # Adjusted x-axis breaks for readability
+
+hist2
+```
+
+## Weighted T-Test
+
+We will perform a two-sided, two-sample t-test to test the null hypothesis that there is no difference between the mean change in native workers wage across the two groups (below and above median). The summary and conditional summary statistics lend themselves to the alternative hypothesis that there is in fact a difference.
+
+## Weighted T-Test con't
+```{r echo = FALSE, eval = TRUE}
+projectdata=projectdata %>% 
+  mutate(level_above_median=if_else(imm_share_diff_level=="Above Median",1,0))
+
+wtd_ttest <- wtd.t.test(projectdata$wage_diff_nat, 
+                             weight = projectdata$pop_2000, 
+                             projectdata$level_above_median,
+                             alternative = "two.sided")
+wtd_ttest
+```
+
+* p-value of 0.00000 
+  * 99% confidence level
+
+* There is a statistically significant difference between the mean change in wage of native workers among the two groups.
+
+## Scatterplot
+
+```{r echo = FALSE, eval = TRUE, message=FALSE}
+scatter = ggplot(projectdata)+
+  geom_point(aes(x=pop_share_diff_imm, y=wage_diff_nat, size = pop_2000), color = "purple4")+
+  geom_smooth(aes(x = pop_share_diff_imm, y = wage_diff_nat, weight = pop_2000), method = "lm", se = FALSE, color = "black", linetype = "solid") + 
+  theme_bw()+
+    theme(plot.title=element_text(size=17, face='bold'),
+        panel.grid=element_blank(),
+        legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        plot.caption = element_text(size = 15, face='bold'))+
+  labs(title="Relationship Between Immigrant Population Share and Native Worker Wages",
+       x="Change in Immigrant Population Share (%)",
+       y="Change in Native Wages ($)",
+       caption = "Weighted by 2000 Population")
+
+scatter
+```
+
+# Discussion 
+
+## Findings 
+
+There is a slight positive relationship between change in immigrant population shares and change in wages of native workers.
+
+* On average, as immigration goes up, wages of native workers go up.
+
+* This finding contradicts the initial hypothesis.
+
+* Data visualizations (histograms and weighted scatterplot) support this relationship.
+
+## Limitations
+
+The analysis shows correlation, but cannot establish a causal relationship.
+
+* Local economic and immigration settlement trends as well as confounding variables such as labor market conditions or cost of living may influence both immigration and wages. 
+
+The analysis is based on data from the 100 largest cities in a specific period (1990-2000).
+
+* Results may not be able to be generalized to smaller cities or different time periods.
+
+* 90s believed to be a great period for economic growth in the US (Brookings, 2001).
+
+## Areas for Future Research
+
+* Breaking down the data by region, industry, occupation, or ethnicity would provide deeper insights.
+
+* Examining trends over time could reveal how this relationship evolves. 
+
+* Considering skill/education level of immigrants and native workers.
